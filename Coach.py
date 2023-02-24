@@ -55,15 +55,13 @@ class Coach():
             canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
 
-            pi = self.mcts.getActionProb(canonicalBoard, self.curPlayer, temp=temp)
+            pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
             sym = self.game.getSymmetries(canonicalBoard, pi)
             for b, p in sym:
                 trainExamples.append([b, self.curPlayer, p, None])
 
             action = np.random.choice(len(pi), p=pi)
-            board, _ = self.game.getNextState(canonicalBoard, self.curPlayer, action)
-            board = self.game.getOriginalForm(board, self.curPlayer)
-            self.curPlayer = -self.curPlayer
+            board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
 
             r = self.game.getGameEnded(board, self.curPlayer)
 
@@ -93,7 +91,7 @@ class Coach():
                 # save the iteration examples to the history 
                 self.trainExamplesHistory.append(iterationTrainExamples)
 
-            while len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
+            if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
                 log.warning(
                     f"Removing the oldest entry in trainExamples. len(trainExamplesHistory) = {len(self.trainExamplesHistory)}")
                 self.trainExamplesHistory.pop(0)
@@ -117,8 +115,8 @@ class Coach():
 
             log.info('PITTING AGAINST PREVIOUS VERSION')
             print('PITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(lambda x, player: np.argmax(pmcts.getActionProb(x, player, temp=0)),
-                          lambda x, player: np.argmax(nmcts.getActionProb(x, player, temp=0)), self.game)
+            arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
+                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game)
             pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
 
             log.info('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
@@ -150,9 +148,9 @@ class Coach():
         examplesFile = modelFile + ".examples"
         if not os.path.isfile(examplesFile):
             log.warning(f'File "{examplesFile}" with trainExamples not found!')
-            # r = input("Continue? [y|n]")
-            # if r != "y":
-            #     sys.exit()
+            r = input("Continue? [y|n]")
+            if r != "y":
+                sys.exit()
         else:
             log.info("File with trainExamples found. Loading it...")
             with open(examplesFile, "rb") as f:
