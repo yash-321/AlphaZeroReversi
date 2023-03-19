@@ -11,22 +11,22 @@ from utils import *
 import torch
 import torch.optim as optim
 
-from .ReversiNNet import ReversiNNet as rnnet
+from .ReversiNNet import ReversiNNet as onnet
 
 args = dotdict({
     'lr': 0.0017,
     'dropout': 0.3,
     'epochs': 10,
-    'batch_size': 32,
+    'batch_size': 64,
     'cuda': torch.cuda.is_available(),
     'num_channels': 512,
-    'num_res_blocks': 4,
+    'num_res_blocks': 2,
 })
 
 
 class NNetWrapper():
     def __init__(self, game):
-        self.nnet = rnnet(game, args)
+        self.nnet = onnet(game, args)
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
 
@@ -37,7 +37,7 @@ class NNetWrapper():
         """
         examples: list of examples, each example is of form (board, pi, v)
         """
-        optimizer = optim.Adam(self.nnet.parameters())
+        optimizer = optim.Adam(self.nnet.parameters(), lr=args.lr)
 
         for epoch in range(args.epochs):
             print('EPOCH ::: ' + str(epoch + 1))
@@ -111,6 +111,7 @@ class NNetWrapper():
         }, filepath)
 
     def load_checkpoint(self, folder='checkpoint', filename='checkpoint.pth.tar'):
+        # https://github.com/pytorch/examples/blob/master/imagenet/main.py#L98
         filepath = os.path.join(folder, filename)
         if not os.path.exists(filepath):
             raise ("No model in path {}".format(filepath))

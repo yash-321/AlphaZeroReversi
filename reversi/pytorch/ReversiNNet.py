@@ -6,79 +6,73 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 
 class ReversiNNet(nn.Module):
     def __init__(self, game, args):
-        # game params
+        super(ReversiNNet, self).__init__()
+
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
         self.args = args
 
-        super(ReversiNNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, args.num_channels, 3, stride=1, padding=1)
+        # Define the convolutional layer
+        self.conv1 = nn.Conv2d(1, self.args.num_channels, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(self.args.num_channels)
 
-        self.bn1 = nn.BatchNorm2d(args.num_channels)
+        # Define the residual layers
+        self.residual_layers = nn.ModuleList([ResidualLayer(self.args.num_channels) for _ in range(self.args.num_res_blocks)])
 
-        self.resBlocks = []
-        for _ in range(args.num_res_blocks):
-            res = ResBlock(args.num_channels)
-            if self.args.cuda:
-                res.cuda()
-            self.resBlocks.append(res)
+        # Define Hidden layers
+        self.fc1 = nn.Linear(args.num_channels*self.board_x*self.board_y, 512)
+        self.fc_bn1 = nn.BatchNorm1d(512)
 
-        self.fc1 = nn.Linear(args.num_channels*(self.board_x)*(self.board_y), 1024)
-        self.fc_bn1 = nn.BatchNorm1d(1024)
+        self.fc2 = nn.Linear(512, 256)
+        self.fc_bn2 = nn.BatchNorm1d(256)
 
-        self.fc2 = nn.Linear(1024, 512)
-        self.fc_bn2 = nn.BatchNorm1d(512)
+        # Define policy and value head
+        self.policy_fc = nn.Linear(256, self.action_size)
+        self.value_fc = nn.Linear(256, 1)
 
-        self.fc3 = nn.Linear(512, self.action_size)
+    def forward(self, x):
+        x = x.view(-1, 1, self.board_x, self.board_y)
 
-        self.fc4 = nn.Linear(512, 1)
+        # Pass input through convolutional layer
+        x = F.relu(self.bn1(self.conv1(x)))
 
-    def forward(self, s):
-        #                                                           s: batch_size x board_x x board_y
-        s = s.view(-1, 1, self.board_x, self.board_y)                # batch_size x 1 x board_x x board_y
-        s = F.relu(self.bn1(self.conv1(s)))                          # Convolutional Layer
+        # Pass input through residual layers
+        for layer in self.residual_layers:
+            x = layer(x)
 
-        for res in self.resBlocks:                                   # Residual Layers
-            s = res(s)
+        x = x.view(-1, self.args.num_channels*self.board_x*self.board_y)
+
+        # Pass through hidden layers
+        x = F.dropout(F.relu(self.fc_bn1(self.fc1(x))), p=self.args.dropout, training=self.training)
+        x = F.dropout(F.relu(self.fc_bn2(self.fc2(x))), p=self.args.dropout, training=self.training)
+
+        policy = self.policy_fc(x)
+        value = self.value_fc(x)
         
-        s = s.view(-1, self.args.num_channels*(self.board_x)*(self.board_y))
-
-        s = F.dropout(F.relu(self.fc_bn1(self.fc1(s))), p=self.args.dropout, training=self.training)  # batch_size x 1024
-        s = F.dropout(F.relu(self.fc_bn2(self.fc2(s))), p=self.args.dropout, training=self.training)  # batch_size x 512
-
-        pi = self.fc3(s)                                            # Policy Head
-        v = self.fc4(s)                                             # Value Head
-
-        return F.log_softmax(pi, dim=1), torch.tanh(v)
+        return F.log_softmax(policy, dim=1), torch.tanh(value)
 
 
-    """
-    Define an nn.Module class for a simple residual block with equal dimensions
-    """
-class ResBlock(nn.Module):
+class ResidualLayer(nn.Module):
+    def __init__(self, channels):
+        super(ResidualLayer, self).__init__()
 
-    """
-    Iniialize a residual block with two convolutions followed by batchnorm layers
-    """
-    def __init__(self, num_channels:int):
-        super().__init__()
-        self.conv1 = nn.Conv2d(num_channels, num_channels, 3, padding=1)
-        self.conv2 = nn.Conv2d(num_channels, num_channels, 3, padding=1)
-        self.batchnorm1 = nn.BatchNorm2d(num_channels)
-        self.batchnorm2 = nn.BatchNorm2d(num_channels)
+        # Define the convolutional layers
+        self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(channels)
+        self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(channels)
 
-    def convblock(self, x):
-        x = F.relu(self.batchnorm1(self.conv1(x)))
-        x = F.relu(self.batchnorm2(self.conv2(x)))
-        return x
+    def forward(self, x):
+        # Pass input through first convolutional layer
+        out = F.relu(self.bn1(self.conv1(x)))
 
-    """
-    Combine output with the original input
-    """
-    def forward(self, x): return x + self.convblock(x) # skip connection
+        # Pass output through second convolutional layer
+        out = self.bn2(self.conv2(out))
 
+        # Add input to output and pass through activation function
+        out = F.relu(out + x)
 
+        return out
