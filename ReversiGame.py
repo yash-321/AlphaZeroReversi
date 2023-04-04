@@ -1,7 +1,7 @@
 from __future__ import print_function
 import sys
 sys.path.append('..')
-from .ReversiLogic import Board
+from ReversiLogic import Board
 import numpy as np
 
 class ReversiGame():

@@ -3,8 +3,8 @@ import logging
 #import coloredlogs
 
 from Coach import Coach
-from reversi.ReversiGame import ReversiGame as Game
-from reversi.pytorch.NNetWrapper import NNetWrapper as nn
+from ReversiGame import ReversiGame as Game
+from NNetWrapper import NNetWrapper as nn
 from utils import *
 
 log = logging.getLogger(__name__)

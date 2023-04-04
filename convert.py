@@ -6,8 +6,8 @@ import torch
 from torchsummary import summary
 import numpy as np
 
-from reversi.pytorch.NNetWrapper import NNetWrapper as NNet
-from reversi.ReversiGame import ReversiGame
+from NNetWrapper import NNetWrapper as NNet
+from ReversiGame import ReversiGame
 
 # Load the PyTorch model
 game = ReversiGame(8)

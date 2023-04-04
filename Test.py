@@ -1,9 +1,9 @@
 
 from Arena import Arena
 from MCTS import MCTS
-from reversi.ReversiGame import ReversiGame
-from reversi.ReversiPlayers import *
-from reversi.pytorch.NNetWrapper import NNetWrapper as NNet
+from ReversiGame import ReversiGame
+from ReversiPlayers import *
+from NNetWrapper import NNetWrapper as NNet
 
 
 import numpy as np
@@ -29,4 +29,4 @@ player2 = MinimaxPlayer(g, 5).play
 #player2 = HumanReversiPlayer(g).play
 
 arena = Arena(player1, player2, g, display=ReversiGame.display)
-print(arena.playGame(True))
+print(arena.playGames(10))

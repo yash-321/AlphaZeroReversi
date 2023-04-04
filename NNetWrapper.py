@@ -11,7 +11,7 @@ from utils import *
 import torch
 import torch.optim as optim
 
-from .ReversiNNet import ReversiNNet as onnet
+from ReversiNNet import ReversiNNet as onnet
 
 args = dotdict({
     'lr': 0.0017,
